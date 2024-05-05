@@ -23,5 +23,3 @@ $ go build -o my_app ./cmd
 $ go run my_app
 
 ```
-
-Просмомотреть логи можно в 
