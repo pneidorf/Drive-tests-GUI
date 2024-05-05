@@ -1,0 +1,304 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "contact": {}
+    },
+    "paths": {
+        "/api/jwt/test": {
+            "post": {
+                "description": "Создание JWT токена для пользователя \"test_user\"",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Получение JWT токена",
+                "operationId": "createJwtToken",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.Token"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/jwt/verify": {
+            "post": {
+                "description": "Проверка валидности переданного тестового JWT токена",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Проверка валидности JWT токена",
+                "operationId": "verifyJwtToken",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer your_token",
+                        "name": "Authorization",
+                        "in": "header",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api.jwtValidationResult"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/api.jwtValidationResult"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/auth": {
+            "post": {
+                "description": "Производит аутентификацию пользователя на основе предоставленных данных\nПри авторизации без пароля можно произвести авторизацию через Token\nДля этого по аналогии с /api/jwt/verify в поле Authorization нужно разместить ваш значение Bearer: \u003cyour_token\u003e\nEmail всё равно нужно указать для избежания \"призрачных\" аккаунтов, сопоставляется с текущими email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Аутентификация пользователя и выдача токена доступа",
+                "operationId": "authenticateUser",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer your_token",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Данные пользователя для аутентификации",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.authRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Успешная аутентификация",
+                        "schema": {
+                            "$ref": "#/definitions/api.authResponseSuccess"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка аутентификации",
+                        "schema": {
+                            "$ref": "#/definitions/api.authResponseError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/register": {
+            "post": {
+                "description": "Производит аутентификацию пользователя на основе предоставленных данных\nПри авторизации без пароля можно произвести авторизацию через Token\nДля этого по аналогии с /api/jwt/verify в поле Authorization нужно разместить ваш значение Bearer: \u003cyour_token\u003e\nEmail всё равно нужно указать для избежания \"призрачных\" аккаунтов, сопоставляется с текущими email",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Регистрирует пользователя и выдача токена доступа",
+                "operationId": "registrationUser",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Bearer your_token",
+                        "name": "Authorization",
+                        "in": "header"
+                    },
+                    {
+                        "description": "Данные пользователя для аутентификации",
+                        "name": "body",
+                        "in": "body",
+                        "schema": {
+                            "$ref": "#/definitions/api.registerRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Успешная аутентификация",
+                        "schema": {
+                            "$ref": "#/definitions/api.registerResponseSuccess"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка аутентификации",
+                        "schema": {
+                            "$ref": "#/definitions/api.registerResponseError"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/user/verify": {
+            "get": {
+                "description": "Проверка валидности переданного ключа верификации пользователя\nДля выдачи такой ссылки в поле key ничего не пишите, поставьте поле \"тестовый режим\" на значение 1 и сделайте отправку\nДля конечной проверки перейдите по тестовой ссылке (НЕ ЯВЛЯЕТСЯ ЧАСТЬЮ API ради забавы разместил)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "Верификация почты путём перехода по ссылке",
+                "operationId": "verifyUserKey",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Ключ верификации пользователя",
+                        "name": "key",
+                        "in": "query"
+                    },
+                    {
+                        "enum": [
+                            0,
+                            1
+                        ],
+                        "type": "integer",
+                        "default": 0,
+                        "description": "Тестовый режим",
+                        "name": "test",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Успешная проверка ключа",
+                        "schema": {
+                            "$ref": "#/definitions/net.Msg"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка при проверке ключа",
+                        "schema": {
+                            "$ref": "#/definitions/api.linkResponseErr"
+                        }
+                    },
+                    "426": {
+                        "description": "Ключ",
+                        "schema": {
+                            "$ref": "#/definitions/api.linkResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "api.authRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.authResponseError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.authResponseSuccess": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "jwt": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.jwtValidationResult": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "result": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.linkResponse": {
+            "type": "object",
+            "properties": {
+                "test_link": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.linkResponseErr": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.registerRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.registerResponseError": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                }
+            }
+        },
+        "api.registerResponseSuccess": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "jwt": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "net.Msg": {
+            "type": "object",
+            "additionalProperties": true
+        },
+        "types.Token": {
+            "type": "object",
+            "properties": {
+                "jwt": {
+                    "type": "string"
+                }
+            }
+        }
+    }
+}

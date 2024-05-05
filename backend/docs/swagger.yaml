@@ -1,0 +1,208 @@
+definitions:
+  api.authRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  api.authResponseError:
+    properties:
+      error:
+        type: string
+    type: object
+  api.authResponseSuccess:
+    properties:
+      email:
+        type: string
+      jwt:
+        type: string
+    type: object
+  api.jwtValidationResult:
+    properties:
+      error:
+        type: string
+      result:
+        type: string
+    type: object
+  api.linkResponse:
+    properties:
+      test_link:
+        type: string
+    type: object
+  api.linkResponseErr:
+    properties:
+      error:
+        type: string
+    type: object
+  api.registerRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+  api.registerResponseError:
+    properties:
+      error:
+        type: string
+    type: object
+  api.registerResponseSuccess:
+    properties:
+      email:
+        type: string
+      jwt:
+        type: string
+      message:
+        type: string
+    type: object
+  net.Msg:
+    additionalProperties: true
+    type: object
+  types.Token:
+    properties:
+      jwt:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /api/jwt/test:
+    post:
+      description: Создание JWT токена для пользователя "test_user"
+      operationId: createJwtToken
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/types.Token'
+      summary: Получение JWT токена
+  /api/jwt/verify:
+    post:
+      consumes:
+      - application/json
+      description: Проверка валидности переданного тестового JWT токена
+      operationId: verifyJwtToken
+      parameters:
+      - description: Bearer your_token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.jwtValidationResult'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.jwtValidationResult'
+      summary: Проверка валидности JWT токена
+  /api/user/auth:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Производит аутентификацию пользователя на основе предоставленных данных
+        При авторизации без пароля можно произвести авторизацию через Token
+        Для этого по аналогии с /api/jwt/verify в поле Authorization нужно разместить ваш значение Bearer: <your_token>
+        Email всё равно нужно указать для избежания "призрачных" аккаунтов, сопоставляется с текущими email
+      operationId: authenticateUser
+      parameters:
+      - description: Bearer your_token
+        in: header
+        name: Authorization
+        type: string
+      - description: Данные пользователя для аутентификации
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.authRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            $ref: '#/definitions/api.authResponseSuccess'
+        "400":
+          description: Ошибка аутентификации
+          schema:
+            $ref: '#/definitions/api.authResponseError'
+      summary: Аутентификация пользователя и выдача токена доступа
+  /api/user/register:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Производит аутентификацию пользователя на основе предоставленных данных
+        При авторизации без пароля можно произвести авторизацию через Token
+        Для этого по аналогии с /api/jwt/verify в поле Authorization нужно разместить ваш значение Bearer: <your_token>
+        Email всё равно нужно указать для избежания "призрачных" аккаунтов, сопоставляется с текущими email
+      operationId: registrationUser
+      parameters:
+      - description: Bearer your_token
+        in: header
+        name: Authorization
+        type: string
+      - description: Данные пользователя для аутентификации
+        in: body
+        name: body
+        schema:
+          $ref: '#/definitions/api.registerRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная аутентификация
+          schema:
+            $ref: '#/definitions/api.registerResponseSuccess'
+        "400":
+          description: Ошибка аутентификации
+          schema:
+            $ref: '#/definitions/api.registerResponseError'
+      summary: Регистрирует пользователя и выдача токена доступа
+  /api/user/verify:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Проверка валидности переданного ключа верификации пользователя
+        Для выдачи такой ссылки в поле key ничего не пишите, поставьте поле "тестовый режим" на значение 1 и сделайте отправку
+        Для конечной проверки перейдите по тестовой ссылке (НЕ ЯВЛЯЕТСЯ ЧАСТЬЮ API ради забавы разместил)
+      operationId: verifyUserKey
+      parameters:
+      - description: Ключ верификации пользователя
+        in: query
+        name: key
+        type: string
+      - default: 0
+        description: Тестовый режим
+        enum:
+        - 0
+        - 1
+        in: query
+        name: test
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешная проверка ключа
+          schema:
+            $ref: '#/definitions/net.Msg'
+        "400":
+          description: Ошибка при проверке ключа
+          schema:
+            $ref: '#/definitions/api.linkResponseErr'
+        "426":
+          description: Ключ
+          schema:
+            $ref: '#/definitions/api.linkResponse'
+      summary: Верификация почты путём перехода по ссылке
+swagger: "2.0"
