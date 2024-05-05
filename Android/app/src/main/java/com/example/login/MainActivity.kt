@@ -14,18 +14,26 @@ import android.telephony.gsm.GsmCellLocation
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.Tab
+import androidx.compose.material.TabRow
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.app.ActivityCompat
@@ -43,14 +51,16 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.Call
 import okhttp3.Callback
-import okhttp3.FormBody
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import okhttp3.WebSocket
 import okhttp3.WebSocketListener
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+
 
 class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsResultCallback {
 
@@ -82,16 +92,14 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
     private fun registerAndAuthenticateUser(username: String, password: String) {
         registerUser(username, password) { jwt ->
             jwt?.let {
-                authenticateUser(username, password, it)
+                authenticateUser(username, password)
             }
         }
     }
 
     private fun registerUser(email: String, password: String, onComplete: (String?) -> Unit) {
-        val requestBody = FormBody.Builder()
-            .add("email", email)
-            .add("password", password)
-            .build()
+        val jsonBody = Json.encodeToString(mapOf("email" to email, "password" to password))
+        val requestBody = jsonBody.toRequestBody("application/json".toMediaTypeOrNull())
 
         val request = Request.Builder()
             .url("$SERVER_URL/api/user/register")
@@ -118,18 +126,17 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         })
     }
 
-    private fun authenticateUser(email: String, password: String, jwt: String) {
-        val requestBody = FormBody.Builder()
-            .add("username", email)
-            .add("password", password)
-            .build()
-
+//TO DO: РЕГИСТРАЦИЯ ПРОХОДИТ УСПЕШНО, ОТ СЕРВЕРА ПОСТУПАЕТ JWT-TOKEN. НУЖНО ДОРАБОТАТЬ АВТОРИЗАЦИЮ
+//TO DO: ПРИ ПОПЫТКЕ АВТОРИЗАЦИИ - ОШИБКА 400 (Failed to authenticate user: 400)
+    private fun authenticateUser(email: String, password: String) {
+        // Создание тела запроса для аутентификации
+        val requestBody = Json.encodeToString(mapOf("email" to email, "password" to password))
         val request = Request.Builder()
             .url("$SERVER_URL/api/user/auth")
-            .header("Authorization", "Bearer $jwt")
-            .post(requestBody)
+            .post(requestBody.toRequestBody("application/json".toMediaTypeOrNull()))
             .build()
 
+        // Отправка запроса на аутентификацию
         httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
                 Log.e(TAG, "Failed to authenticate user", e)
@@ -141,12 +148,23 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
                         Log.e(TAG, "Failed to authenticate user: ${response.code}")
                         return
                     }
-                    Log.d(TAG, "User authenticated successfully")
-                    // Логика при успешной аутентификации
+                    val responseBody = response.body?.string()
+                    // Десериализация JSON-ответа
+                    val jsonResponse = Json.decodeFromString<Map<String, String>>(responseBody ?: "")
+                    val email = jsonResponse["email"]
+                    val jwt = jsonResponse["jwt"]
+                    if (email != null && jwt != null) {
+                        Log.d(TAG, "User authenticated successfully")
+                        // Подключение WebSocket после успешной аутентификации
+                        connectWebSocket(jwt)
+                    } else {
+                        Log.e(TAG, "Failed to authenticate user: Invalid response format")
+                    }
                 }
             }
         })
     }
+
 
     private fun connectWebSocket(jwt: String) {
         val client = OkHttpClient.Builder()
@@ -215,7 +233,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             )
         } else {
             // Если разрешения уже предоставлены, начать процесс регистрации и аутентификации
-            registerAndAuthenticateUser("example@example.com", "password")
+            registerAndAuthenticateUser("test9@gmail.com", "password")
         }
     }
 
@@ -260,7 +278,22 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
                 modifier = Modifier.fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                LoginScreen(state)
+                TabRow(selectedTabIndex = state.selectedTabIndex) {
+                    Tab(
+                        selected = state.selectedTabIndex == 0,
+                        onClick = { state.selectedTabIndex = 0 },
+                        text = { Text("Данные") }
+                    )
+                    Tab(
+                        selected = state.selectedTabIndex == 1,
+                        onClick = { state.selectedTabIndex = 1 },
+                        text = { Text("Графики") }
+                    )
+                }
+                when (state.selectedTabIndex) {
+                    0 -> LoginScreen(state)
+                    1 -> RSRPGraph(state)
+                }
             }
         } else {
             Text("Waiting for permissions...")
@@ -336,14 +369,14 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
                                 is CdmaCellLocation -> cellLocation.baseStationId.toString()
                                 else -> "Cell ID not available"
                             }
+                            Log.d(TAG, "RSRP value: ${state.rsrp}")
+                            Log.d(TAG, "RSSI value: ${state.rssi}")
+                            Log.d(TAG, "RSRQ value: ${state.rsrq}")
+                            Log.d(TAG, "RSSNR value: ${state.rssnr}")
+                            Log.d(TAG, "CQI value: ${state.cqi}")
+                            Log.d(TAG, "Bandwidth value: ${state.bandwidth}")
+                            Log.d(TAG, "Cell ID value: ${state.cellId}")
                         }
-                        Log.d(TAG, "RSRP value: ${state.rsrp}")
-                        Log.d(TAG, "RSSI value: ${state.rssi}")
-                        Log.d(TAG, "RSRQ value: ${state.rsrq}")
-                        Log.d(TAG, "RSSNR value: ${state.rssnr}")
-                        Log.d(TAG, "CQI value: ${state.cqi}")
-                        Log.d(TAG, "Bandwidth value: ${state.bandwidth}")
-                        Log.d(TAG, "Cell ID value: ${state.cellId}")
                         break
                     }
                 }
@@ -358,6 +391,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             state.cellId = "No READ_PHONE_STATE permission"
         }
     }
+
 
     @Composable
     fun LoginScreen(state: MainActivityState) {
@@ -409,29 +443,71 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             Manifest.permission.READ_PHONE_STATE
         ) == PackageManager.PERMISSION_GRANTED
     }
-}
 
-class MainActivityState(val context: Context) {
-    var latitude by mutableStateOf("")
-    var longitude by mutableStateOf("")
-    var rsrp by mutableStateOf("")
-    var rssi by mutableStateOf("")
-    var rsrq by mutableStateOf("")
-    var rssnr by mutableStateOf("")
-    var cqi by mutableStateOf("")
-    var bandwidth by mutableStateOf("")
-    var cellId by mutableStateOf("")
-}
+    @Composable
+    fun RSRPGraph(state: MainActivityState) {
+        val cellData = remember { mutableStateListOf<Pair<String, Float>>() }
 
-@Serializable
-data class LocationData(
-    val latitude: String,
-    val longitude: String,
-    val rsrp: String,
-    val rssi: String,
-    val rsrq: String,
-    val rssnr: String,
-    val cqi: String,
-    val bandwidth: String,
-    val cellId: String
-)
+        LaunchedEffect(state.cellId) {
+            cellData.add(Pair(state.cellId, state.rsrp.toFloatOrNull() ?: 0f))
+        }
+
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawLine(
+                start = Offset(0f, size.height),
+                end = Offset(size.width, size.height),
+                color = Color.Black
+            )
+
+            if (cellData.size >= 2) {
+                val xInterval = size.width / (cellData.size - 1)
+
+                val paint = androidx.compose.ui.graphics.Paint().asFrameworkPaint()
+                paint.color = Color.Black.toArgb()
+                paint.textSize = 30f
+
+                cellData.forEachIndexed { index, pair ->
+                    val x = index * xInterval
+                    val y = size.height - pair.second
+                    drawCircle(color = Color.Blue, center = Offset(x, y), radius = 5f)
+                    drawContext.canvas.nativeCanvas.drawText(pair.first, x, size.height + 20f, paint)
+                }
+
+                (0 until cellData.size - 1).forEach { index ->
+                    val startX = index * xInterval
+                    val startY = size.height - cellData[index].second
+                    val endX = (index + 1) * xInterval
+                    val endY = size.height - cellData[index + 1].second
+                    drawLine(start = Offset(startX, startY), end = Offset(endX, endY), color = Color.Red, strokeWidth = 2f)
+                }
+            }
+        }
+    }
+
+    class MainActivityState(val context: Context) {
+        var latitude by mutableStateOf("")
+        var longitude by mutableStateOf("")
+        var rsrp by mutableStateOf("")
+        var rssi by mutableStateOf("")
+        var rsrq by mutableStateOf("")
+        var rssnr by mutableStateOf("")
+        var cqi by mutableStateOf("")
+        var bandwidth by mutableStateOf("")
+        var cellId by mutableStateOf("")
+        var selectedTabIndex by mutableStateOf(0)
+    }
+
+
+    @Serializable
+    data class LocationData(
+        val latitude: String,
+        val longitude: String,
+        val rsrp: String,
+        val rssi: String,
+        val rsrq: String,
+        val rssnr: String,
+        val cqi: String,
+        val bandwidth: String,
+        val cellId: String
+    )
+}
