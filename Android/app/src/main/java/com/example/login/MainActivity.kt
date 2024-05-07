@@ -3,6 +3,7 @@
 package com.example.login
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
@@ -18,8 +19,11 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+//noinspection UsingMaterialAndMaterial3Libraries
 import androidx.compose.material.Tab
+//noinspection UsingMaterialAndMaterial3Libraries
 import androidx.compose.material.TabRow
+//noinspection UsingMaterialAndMaterial3Libraries
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +70,8 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
 
     companion object {
         const val REQUEST_CODE_PERMISSIONS = 101
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001 // Вы можете выбрать любое уникальное целое число
+
         private const val TAG = "com.example.login.MainActivity"
         private const val UPDATE_INTERVAL = 2000L // 2 секунды
         private const val SERVER_URL = "http://45.90.218.73:8080"
@@ -82,20 +88,20 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         state = MainActivityState(applicationContext)
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this)
         httpClient = OkHttpClient()
-
+        getLocation(state, applicationContext)
         setContent {
             MainContent(state)
         }
         checkAndRequestPermissions()
+//        getLocation(state)
     }
 
     private fun registerAndAuthenticateUser(username: String, password: String) {
-        registerUser(username, password) { jwt ->
-            jwt?.let {
-                authenticateUser(username, password)
-            }
-        }
+        //jwt на время теста:
+        val hardcodedJwt = "ewoJInR5cCI6ICJKV1QiLAoJImFsZyI6ICJIUzI1NiIsCn0=.eyJzdWIiOiJ0ZXN0MTJAZ21haWwuY29tIiwiZXhwIjowfQ==.0brF6ruODiLPClV0YUTo4UUUkn2VxyJ1rc0VlgjO0gs="
+        authenticateUser(username, password, hardcodedJwt)
     }
+
 
     private fun registerUser(email: String, password: String, onComplete: (String?) -> Unit) {
         val jsonBody = Json.encodeToString(mapOf("email" to email, "password" to password))
@@ -126,14 +132,16 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         })
     }
 
-//TO DO: РЕГИСТРАЦИЯ ПРОХОДИТ УСПЕШНО, ОТ СЕРВЕРА ПОСТУПАЕТ JWT-TOKEN. НУЖНО ДОРАБОТАТЬ АВТОРИЗАЦИЮ
-//TO DO: ПРИ ПОПЫТКЕ АВТОРИЗАЦИИ - ОШИБКА 400 (Failed to authenticate user: 400)
-    private fun authenticateUser(email: String, password: String) {
+    private fun authenticateUser(email: String, password: String, token: String) {
         // Создание тела запроса для аутентификации
         val requestBody = Json.encodeToString(mapOf("email" to email, "password" to password))
+            .toRequestBody("application/json".toMediaTypeOrNull())
+
+        // Формирование запроса с заголовком Authorization
         val request = Request.Builder()
             .url("$SERVER_URL/api/user/auth")
-            .post(requestBody.toRequestBody("application/json".toMediaTypeOrNull()))
+            .header("Authorization", "Bearer $token")
+            .post(requestBody)
             .build()
 
         // Отправка запроса на аутентификацию
@@ -164,6 +172,8 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             }
         })
     }
+
+
 
 
     private fun connectWebSocket(jwt: String) {
@@ -233,7 +243,9 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             )
         } else {
             // Если разрешения уже предоставлены, начать процесс регистрации и аутентификации
-            registerAndAuthenticateUser("test9@gmail.com", "password")
+            registerAndAuthenticateUser("test12@gmail.com", "password")
+            getLocation(state, applicationContext)
+
         }
     }
 
@@ -268,7 +280,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         if (permissionsGranted) {
             LaunchedEffect(Unit) {
                 while (true) {
-                    getLocation(state)
+                    getLocation(state, applicationContext)
                     getSignalStrength(state)
                     delay(UPDATE_INTERVAL)
                 }
@@ -300,20 +312,28 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         }
     }
 
-    private fun getLocation(state: MainActivityState) {
+    private fun getLocation(state: MainActivityState, context: Context) {
         Log.d(TAG, "getLocation() called")
-        if (ActivityCompat.checkSelfPermission(
-                this,
+
+        // Проверка разрешения на доступ к местоположению
+        if (ContextCompat.checkSelfPermission(
+                context,
                 Manifest.permission.ACCESS_FINE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
-            Log.d(TAG, "No permission to access location")
+
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
             return
         }
 
+
         if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE
+                context,
+                Manifest.permission.ACCESS_COARSE_LOCATION
             ) != PackageManager.PERMISSION_GRANTED
         ) {
             Log.d(TAG, "No permission to write to external storage")
@@ -326,17 +346,30 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             priority = LocationRequest.PRIORITY_HIGH_ACCURACY
         }
 
+        fusedLocationClient.lastLocation.addOnSuccessListener { location ->
+            location?.let {
+                state.latitude = location.latitude.toString()
+                state.longitude = location.longitude.toString()
+                Log.d(TAG, "Location received: Lat=${state.latitude}, Lon=${state.longitude}")
+            }
+        }.addOnFailureListener { e ->
+            Log.e(TAG, "Failed to get last known location", e)
+        }
+
         fusedLocationClient.requestLocationUpdates(locationRequest, object : LocationCallback() {
             override fun onLocationResult(locationResult: LocationResult) {
                 super.onLocationResult(locationResult)
                 locationResult.lastLocation?.let { location ->
                     state.latitude = location.latitude.toString()
                     state.longitude = location.longitude.toString()
-                    Log.d(TAG, "Location received: Lat=${state.latitude}, Lon=${state.longitude}")
+                    Log.d(TAG, "Location updated: Lat=${state.latitude}, Lon=${state.longitude}")
                 }
             }
         }, null)
     }
+
+
+
 
     private fun getSignalStrength(state: MainActivityState) {
         if (checkPhoneStatePermission(state.context)) {
@@ -484,6 +517,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         }
     }
 
+    @SuppressLint("AutoboxingStateCreation")
     class MainActivityState(val context: Context) {
         var latitude by mutableStateOf("")
         var longitude by mutableStateOf("")
