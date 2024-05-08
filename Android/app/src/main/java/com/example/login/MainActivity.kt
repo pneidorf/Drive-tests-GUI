@@ -66,15 +66,32 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 
+//    TODO: Авторизация проходит успешно. Нужно настроить передачу данных на сервер после авторизации.
+//     Скорее всего, дело в неправильном пути WEBSOCKET_ENDPOINT.
+//     Сейчас возникает ошибка:
+//E  WebSocket connection failure
+//java.net.ProtocolException: Expected HTTP 101 response but was '404 Not Found'
+//at okhttp3.internal.ws.RealWebSocket.checkUpgradeSuccess$okhttp(RealWebSocket.kt:224)
+//at okhttp3.internal.ws.RealWebSocket$connect$1.onResponse(RealWebSocket.kt:170)
+//at okhttp3.internal.connection.RealCall$AsyncCall.run(RealCall.kt:519)
+//at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
+//at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
+//at java.lang.Thread.run(Thread.java:923)
+//                 E  Response message: Not Found
+//                 E  Response code: 404
+
+@Suppress("NAME_SHADOWING")
 class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsResultCallback {
 
     companion object {
         const val REQUEST_CODE_PERMISSIONS = 101
-        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001 // Вы можете выбрать любое уникальное целое число
+        private const val LOCATION_PERMISSION_REQUEST_CODE = 1001
 
         private const val TAG = "com.example.login.MainActivity"
         private const val UPDATE_INTERVAL = 2000L // 2 секунды
         private const val SERVER_URL = "http://45.90.218.73:8080"
+        //private const val SERVER_URL1 = "ws://45.90.218.73:8080" <- тестовый URL для передачи данных по WebSocket
+
         private const val WEBSOCKET_ENDPOINT = "/websocket"
     }
 
@@ -98,7 +115,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
 
     private fun registerAndAuthenticateUser(username: String, password: String) {
         //jwt на время теста:
-        val hardcodedJwt = "ewoJInR5cCI6ICJKV1QiLAoJImFsZyI6ICJIUzI1NiIsCn0=.eyJzdWIiOiJ0ZXN0MTJAZ21haWwuY29tIiwiZXhwIjowfQ==.0brF6ruODiLPClV0YUTo4UUUkn2VxyJ1rc0VlgjO0gs="
+        val hardcodedJwt = "ewoJInR5cCI6ICJKV1QiLAoJImFsZyI6ICJIUzI1NiIsCn0=.eyJzdWIiOiJ2b3ZhMTAyMjA0QGdtYWlsLmNvbSIsImV4cCI6MH0=.odAcIzDgWBzknJ5hu0bOrs0ISFC_1pBOaLRLucW7fRk="
         authenticateUser(username, password, hardcodedJwt)
     }
 
@@ -132,45 +149,100 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         })
     }
 
-    private fun authenticateUser(email: String, password: String, token: String) {
-        // Создание тела запроса для аутентификации
-        val requestBody = Json.encodeToString(mapOf("email" to email, "password" to password))
-            .toRequestBody("application/json".toMediaTypeOrNull())
-
-        // Формирование запроса с заголовком Authorization
+    private fun verifyToken(token: String, onComplete: (Boolean) -> Unit) {
         val request = Request.Builder()
-            .url("$SERVER_URL/api/user/auth")
+            .url("$SERVER_URL/api/jwt/verify")
             .header("Authorization", "Bearer $token")
-            .post(requestBody)
+            .post("".toRequestBody(null))
             .build()
 
-        // Отправка запроса на аутентификацию
         httpClient.newCall(request).enqueue(object : Callback {
             override fun onFailure(call: Call, e: IOException) {
-                Log.e(TAG, "Failed to authenticate user", e)
+                Log.e(TAG, "Failed to verify token", e)
+                onComplete(false)
             }
 
             override fun onResponse(call: Call, response: Response) {
                 response.use {
                     if (!response.isSuccessful) {
-                        Log.e(TAG, "Failed to authenticate user: ${response.code}")
+                        Log.e(TAG, "Failed to verify token: ${response.code}")
+                        onComplete(false)
                         return
                     }
                     val responseBody = response.body?.string()
-                    // Десериализация JSON-ответа
                     val jsonResponse = Json.decodeFromString<Map<String, String>>(responseBody ?: "")
-                    val email = jsonResponse["email"]
-                    val jwt = jsonResponse["jwt"]
-                    if (email != null && jwt != null) {
-                        Log.d(TAG, "User authenticated successfully")
-                        // Подключение WebSocket после успешной аутентификации
-                        connectWebSocket(jwt)
+                    val result = jsonResponse["result"]
+                    if (result == "valid") {
+                        Log.d(TAG, "Token is valid")
+                        onComplete(true)
                     } else {
-                        Log.e(TAG, "Failed to authenticate user: Invalid response format")
+                        Log.d(TAG, "Token is invalid")
+                        onComplete(false)
                     }
                 }
             }
         })
+    }
+
+
+    private fun authenticateUser(email: String, password: String, token: String) {
+        // Первая проверка на валидность токена
+        verifyToken(token) { isValid ->
+            if (isValid) {
+                // Если токен валиден, продолжаем аутентификацию
+                val jsonBody = Json.encodeToString(mapOf("email" to email, "password" to password))
+                val requestBody = jsonBody.toRequestBody("application/json".toMediaTypeOrNull())
+
+                // Формирование запроса с заголовком Authorization
+                val request = Request.Builder()
+                    .url("$SERVER_URL/api/user/auth")
+                    .header("Authorization", "Bearer $token")
+                    .post(requestBody)
+                    .build()
+
+                // Отправка запроса на аутентификацию
+                httpClient.newCall(request).enqueue(object : Callback {
+                    override fun onFailure(call: Call, e: IOException) {
+                        Log.e(TAG, "Failed to authenticate user (1)", e)
+                    }
+
+                    override fun onResponse(call: Call, response: Response) {
+                        response.use {
+                            if (!response.isSuccessful) {
+                                if (response.code == 401) {
+                                    // Пользователь не аутентифицирован
+                                    Log.e(TAG, "Failed to authenticate user: Unauthorized")
+                                } else {
+                                    Log.e(TAG, "Failed to authenticate user (2): ${response.code}")
+                                }
+                                return
+                            }
+                            val responseBody = response.body?.string()
+                            // Десериализация JSON-ответа
+                            val jsonResponse = Json.decodeFromString<Map<String, String>>(responseBody ?: "")
+                            val email = jsonResponse["email"]
+                            val jwt = jsonResponse["jwt"]
+                            if (email != null && jwt != null) {
+                                Log.d(TAG, "User authenticated successfully")
+                                //TODO:  Подключение WebSocket после успешной аутентификации!
+                                connectWebSocket(jwt)
+                            } else {
+                                Log.e(TAG, "Failed to authenticate user: Invalid response format")
+                            }
+                        }
+                    }
+                })
+            } else {
+                Log.e(TAG, "Token is invalid, cannot authenticate user")
+            }
+        }
+    }
+
+
+
+
+    private fun authRequest(email: String, password: String): Map<String, String> {
+        return mapOf("email" to email, "password" to password)
     }
 
 
@@ -208,9 +280,14 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
 
             override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
                 Log.e(TAG, "WebSocket connection failure", t)
+                if (response != null) {
+                    Log.e(TAG, "Response message: ${response.message}")
+                    Log.e(TAG, "Response code: ${response.code}")
+                }
             }
         })
     }
+
 
     private fun generateJSON(state: MainActivityState): String {
         val locationData = LocationData(
@@ -243,7 +320,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             )
         } else {
             // Если разрешения уже предоставлены, начать процесс регистрации и аутентификации
-            registerAndAuthenticateUser("test12@gmail.com", "password")
+            registerAndAuthenticateUser("vova102204@gmail.com", "password")
             getLocation(state, applicationContext)
 
         }
