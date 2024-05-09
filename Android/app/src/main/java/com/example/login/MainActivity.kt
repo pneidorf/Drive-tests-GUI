@@ -66,20 +66,6 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 
-//    TODO: Авторизация проходит успешно. Нужно настроить передачу данных на сервер после авторизации.
-//     Скорее всего, дело в неправильном пути WEBSOCKET_ENDPOINT.
-//     Сейчас возникает ошибка:
-//E  WebSocket connection failure
-//java.net.ProtocolException: Expected HTTP 101 response but was '404 Not Found'
-//at okhttp3.internal.ws.RealWebSocket.checkUpgradeSuccess$okhttp(RealWebSocket.kt:224)
-//at okhttp3.internal.ws.RealWebSocket$connect$1.onResponse(RealWebSocket.kt:170)
-//at okhttp3.internal.connection.RealCall$AsyncCall.run(RealCall.kt:519)
-//at java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1167)
-//at java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:641)
-//at java.lang.Thread.run(Thread.java:923)
-//                 E  Response message: Not Found
-//                 E  Response code: 404
-
 @Suppress("NAME_SHADOWING")
 class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsResultCallback {
 
@@ -90,9 +76,11 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
         private const val TAG = "com.example.login.MainActivity"
         private const val UPDATE_INTERVAL = 2000L // 2 секунды
         private const val SERVER_URL = "http://45.90.218.73:8080"
-        //private const val SERVER_URL1 = "ws://45.90.218.73:8080" <- тестовый URL для передачи данных по WebSocket
+        private const val SERVER_URL1 = "ws://45.90.218.73:8080"
 
-        private const val WEBSOCKET_ENDPOINT = "/websocket"
+        private const val WEBSOCKET_ENDPOINT = "/api/sockets/termalmap"
+
+
     }
 
     private lateinit var state: MainActivityState
@@ -224,7 +212,6 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
                             val jwt = jsonResponse["jwt"]
                             if (email != null && jwt != null) {
                                 Log.d(TAG, "User authenticated successfully")
-                                //TODO:  Подключение WebSocket после успешной аутентификации!
                                 connectWebSocket(jwt)
                             } else {
                                 Log.e(TAG, "Failed to authenticate user: Invalid response format")
@@ -253,7 +240,7 @@ class MainActivity : ComponentActivity(), ActivityCompat.OnRequestPermissionsRes
             .pingInterval(5, TimeUnit.SECONDS)
             .build()
         val request = Request.Builder()
-            .url("$SERVER_URL$WEBSOCKET_ENDPOINT")
+            .url("$SERVER_URL1$WEBSOCKET_ENDPOINT")
             .header("Authorization", "Bearer $jwt")
             .build()
 
