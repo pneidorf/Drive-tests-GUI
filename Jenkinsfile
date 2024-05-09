@@ -17,6 +17,7 @@ pipeline {
        steps{
           sh "ServerGO test is running..."
         }
+    }
     stage('test Backend'){
        steps{
           sh "Backend test is running..."
