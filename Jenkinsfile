@@ -9,19 +9,19 @@ pipeline {
       }
     }
     stage('test Android'){
-        steps{
-          sh "Android test is running..."
-        }
+      steps{
+        echo 'Android test is running...'
+      }
     }
     stage('test ServerGO'){
-       steps{
-          sh "ServerGO test is running..."
-        }
+      steps{
+        echo 'ServerGO test is running...'
+      }
     }
     stage('test Backend'){
-       steps{
-          sh "Backend test is running..."
-        }
+      steps{
+        echo 'Backend test is running...'
+      }
     }
   }
 }
