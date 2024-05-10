@@ -51,6 +51,9 @@ func routerRun() {
 	// Sockets
 	router.HandleFunc("/api/sockets/termalmap", api.SocketThermal).Methods("GET") // -> in Dev
 
+	// Python backend
+	router.HandleFunc("/api/jwt/verify", api.JwtVerify).Methods("POST") // <- in Release
+
 	router.Use(appLogs.Handler)
 	router.Use(appAuth.Handler)
 

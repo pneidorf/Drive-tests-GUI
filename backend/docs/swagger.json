@@ -4,6 +4,24 @@
         "contact": {}
     },
     "paths": {
+        "/api/sockets/termalmap": {
+            "post": {
+                "description": "/api/sockets/termalmap",
+                "produces": [
+                    "application/json"
+                ],
+                "summary": "/api/sockets/termalmap",
+                "operationId": "/api/sockets/termalmap",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/types.Token"
+                        }
+                    }
+                }
+            }
+        },
         "/api/jwt/test": {
             "post": {
                 "description": "Создание JWT токена для пользователя \"test_user\"",

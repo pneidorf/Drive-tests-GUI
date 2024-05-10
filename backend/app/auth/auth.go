@@ -8,12 +8,13 @@ import (
 )
 
 var noAuthPages = map[string]bool{
-	"/api/user/auth":     true,
-	"/api/user/register": true,
-	"/api/user/verify":   true,
-	"/api/jwt/test":      true,
-	"/api/jwt/verify":    true,
-	"/openapi":           true,
+	"/api/user/auth":         true,
+	"/api/user/register":     true,
+	"/api/user/verify":       true,
+	"/api/jwt/test":          true,
+	"/api/jwt/verify":        true,
+	"/openapi":               true,
+	"/api/sockets/termalmap": true,
 }
 
 func Handler(next http.Handler) http.Handler {
