@@ -7,3 +7,6 @@
 [submodule "front_react"]
 	path = front_react
 	url = https://github.com/pneidorf/front_react
+[submodule "Android"]
+	path = Android
+	url = https://github.com/vladimir-ponomarenko/Android
