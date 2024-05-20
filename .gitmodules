@@ -4,3 +4,6 @@
 [submodule "go_back"]
 	path = go_back
 	url = https://github.com/nequs17/golang_backend
+[submodule "front_react"]
+	path = front_react
+	url = https://github.com/pneidorf/front_react
