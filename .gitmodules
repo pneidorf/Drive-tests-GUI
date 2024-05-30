@@ -10,3 +10,6 @@
 [submodule "Android"]
 	path = Android
 	url = https://github.com/vladimir-ponomarenko/Android
+[submodule "Docker_img"]
+	path = Docker_img
+	url = https://github.com/Kyokomoon/Docker_img
