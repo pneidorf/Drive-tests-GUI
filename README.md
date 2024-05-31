@@ -19,5 +19,7 @@ Android приложение, которое собирает данные о с
 ## Установка
 Для того, чтобы загрузить к себе проект, нужно прописать команды
 > git copy https://github.com/pneidorf/Drive-tests-GUI.git
+
 > git submodule init
+
 > git submodule update
