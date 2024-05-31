@@ -1,15 +1,20 @@
 [submodule "Python_backend"]
 	path = Python_backend
 	url = https://github.com/LOrenzDJeff/Python_backend
+        branch = main
 [submodule "go_back"]
 	path = go_back
 	url = https://github.com/nequs17/golang_backend
+        branch = main
 [submodule "front_react"]
 	path = front_react
 	url = https://github.com/pneidorf/front_react
+        branch = main
 [submodule "Android"]
 	path = Android
 	url = https://github.com/vladimir-ponomarenko/Android
+        branch = main
 [submodule "Docker_img"]
 	path = Docker_img
 	url = https://github.com/Kyokomoon/Docker_img
+        branch = main
