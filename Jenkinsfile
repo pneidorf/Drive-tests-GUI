@@ -14,9 +14,9 @@ pipeline {
         sh "ls"
         echo 'Building project...'
         sh "docker --version"
-        sh "docker build -t build_go -f ./Docker_img/BUILD/Build_Go_Back ."
-        sh "docker build -t build_react -f ./Docker_img/BUILD/Build_front_react ."
-        sh "docker build -t build_python -f ./Docker_img/BUILD/Build_Python_Back ."
+        sh "docker build --no-cache -t build_go -f ./Docker_img/BUILD/Build_Go_Back ."
+        sh "docker build --no-cache -t build_react -f ./Docker_img/BUILD/Build_front_react ."
+        sh "docker build --no-cache -t build_python -f ./Docker_img/BUILD/Build_Python_Back ."
       }
     }
     stage('test Android'){
